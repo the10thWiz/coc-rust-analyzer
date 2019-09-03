@@ -10,6 +10,7 @@ import { areDiagnosticsEqual } from '../utils/diagnostics/vscode';
 import { terminate } from '../utils/processes';
 import { LineBuffer } from './line_buffer';
 import { StatusDisplay } from './watch_status';
+import { handle as applySourceChange, SourceChange } from './apply_source_change';
 
 export function registerCargoWatchProvider(subscriptions: Disposable[]): CargoWatchProvider | undefined {
   let cargoExists = false;
@@ -139,7 +140,7 @@ export class CargoWatchProvider implements Disposable {
     }
   }
 
-  private parseLine(line: string) {
+  private async parseLine(line: string) {
     if (line.startsWith('[Running')) {
       this.diagnosticCollection.clear();
       this.suggestedFixCollection.clear();
@@ -202,9 +203,24 @@ export class CargoWatchProvider implements Disposable {
       diagnostics.push(diagnostic);
       this.diagnosticCollection!.set(fileUri, diagnostics);
 
+      console.error(`===== lenth:${suggestedFixes.length}`);
       if (suggestedFixes.length) {
         for (const suggestedFix of suggestedFixes) {
           this.suggestedFixCollection.addSuggestedFixForDiagnostic(suggestedFix, diagnostic);
+        }
+
+        const doc = await workspace.document;
+        const actions = this.suggestedFixCollection.provideCodeActions(doc.textDocument);
+        for (const action of actions) {
+          const change: SourceChange = {
+            label: action.title,
+            workspaceEdit: action.edit!
+          };
+          const a = action.edit!.changes![doc.uri];
+          for (const e of a) {
+            console.error(e.range.start, e.range.end);
+          }
+          await applySourceChange(change);
         }
       }
     }
