@@ -1,6 +1,7 @@
 import { spawnSync, spawn } from 'child_process';
 import readline from 'readline';
-import { commands, Documentation, FloatFactory, Terminal, TerminalOptions, Uri, workspace } from 'coc.nvim';
+// @ts-ignore
+import { commands, Documentation, FloatFactory, Terminal, TerminalOptions, Uri, workspace, window } from 'coc.nvim';
 import { Location, Position, Range, TextDocumentEdit, TextDocumentPositionParams, TextEdit, WorkspaceEdit } from 'vscode-languageserver-protocol';
 import { Cmd, Ctx, isRustDocument } from './ctx';
 import * as ra from './lsp_ext';
@@ -147,8 +148,13 @@ export function ssr(ctx: Ctx): Cmd {
       selections,
     };
 
-    const edit = await ctx.client.sendRequest(ra.ssr, param);
-    await workspace.applyEdit(edit);
+    window.withProgress({ title: 'Structured search replacing...', cancellable: false }, () => {
+      return new Promise<void>(async (resolve) => {
+        const edit = await ctx.client.sendRequest(ra.ssr, param);
+        await workspace.applyEdit(edit);
+        resolve();
+      });
+    });
   };
 }
 
